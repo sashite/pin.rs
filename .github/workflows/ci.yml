@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test & lint (stable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Clippy (warnings as errors)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Build all targets
+        run: cargo build --all-targets --all-features
+      - name: Tests and doctests (default features)
+        run: cargo test
+      - name: Tests and doctests (all features)
+        run: cargo test --all-features
+
+  msrv:
+    name: MSRV (1.81)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The committed rust-toolchain.toml pins stable for local development;
+      # remove it here so this job's pinned 1.81 toolchain is actually used.
+      - name: Drop toolchain override
+        run: rm -f rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@1.81.0
+      - uses: Swatinem/rust-cache@v2
+      # Checks the library (zero runtime dependencies) against the MSRV. A plain
+      # `cargo check` does not compile dev-dependencies, keeping the floor stable.
+      - name: Check against MSRV
+        run: cargo check
+
+  no-std:
+    name: no_std build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabi
+      - uses: Swatinem/rust-cache@v2
+      # Building for a bare-metal target proves the crate is genuinely no_std,
+      # both with default features and with the optional serde feature.
+      - name: Build for a bare-metal target
+        run: cargo build --lib --target thumbv7em-none-eabi
+      - name: Build for a bare-metal target (serde)
+        run: cargo build --lib --target thumbv7em-none-eabi --features serde
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # `-D warnings` (via RUSTDOCFLAGS) fails the build on broken intra-doc links.
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2

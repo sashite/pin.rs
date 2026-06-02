@@ -1,0 +1,3 @@
+# Acronyms written as prose in doc comments. The trailing ".." keeps clippy's
+# built-in allowlist (ASCII, GitHub, ...) so we only extend, never replace it.
+doc-valid-idents = ["PIN", "API", ".."]

@@ -1,0 +1,69 @@
+[package]
+name = "sashite-pin"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.81"
+description = "Piece Identifier Notation (PIN): a compact, ASCII-only, no_std token format for identifying pieces in abstract strategy board games."
+repository = "https://github.com/sashite/pin.rs"
+homepage = "https://sashite.dev/specs/pin/1.0.0/"
+documentation = "https://docs.rs/sashite-pin"
+license = "Apache-2.0"
+readme = "README.md"
+keywords = ["notation", "chess", "shogi", "board-game", "sashite"]
+categories = ["game-development", "encoding", "no-std", "parser-implementations"]
+# Tooling files that carry no value inside the published crate tarball.
+exclude = [".github/", "clippy.toml", "deny.toml", "rust-toolchain.toml"]
+
+[package.metadata.docs.rs]
+# Build docs with the optional features enabled, and set the cfg that
+# doc_auto_cfg uses to label feature-gated items.
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+# No required runtime dependencies: PIN is no_std and self-contained. `serde` is
+# optional and off by default; enabling it keeps the crate no_std.
+serde = { version = "1", optional = true, default-features = false }
+
+[features]
+# Opt-in (de)serialization of `Identifier` as its canonical token string.
+serde = ["dep:serde"]
+
+[dev-dependencies]
+# Cross-validates the hand-written parser against the spec regex (tests only).
+regex = "1"
+# Exercises the serde implementations (only used with the `serde` feature).
+serde_test = "1"
+# Micro-benchmarks (bench target only). Drop the heavy default features
+# (plotting, rayon) but keep cargo_bench_support, which `cargo bench` requires.
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "parse"
+harness = false
+
+# Single source of truth for lints, applied to ALL targets (lib, tests,
+# benches, examples). CI runs with -D warnings, so every warning is an error.
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# Legitimate noise from dev-deps (regex + criterion may pull duplicate
+# transitive versions); the runtime graph stays empty regardless.
+multiple_crate_versions = "allow"
+# Every primary type lives in a private module named after it; the modules are
+# an implementation detail and the types are re-exported flat at the crate root.
+module_name_repetitions = "allow"
+
+# Affects only this crate's own release builds (benches/examples). Profile
+# settings of a dependency are ignored by downstream consumers.
+[profile.release]
+lto = true
+codegen-units = 1

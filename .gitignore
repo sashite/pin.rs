@@ -1,0 +1,8 @@
+# Rust build artifacts.
+/target/
+
+# Cargo.lock: committed on purpose so CI builds are reproducible (it pins the
+# dev-dependency graph). A library's Cargo.lock is ignored by downstream
+# consumers, so tracking it affects only this repository. To follow the older
+# convention of not tracking it for libraries, uncomment the next line.
+# /Cargo.lock

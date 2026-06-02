@@ -1,0 +1,6 @@
+# Pins the local development toolchain; rustup reads this file automatically.
+# Excluded from the published crate. CI selects toolchains explicitly per job.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

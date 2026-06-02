@@ -1,0 +1,33 @@
+# cargo-deny configuration — supply-chain, license, and source checks.
+# Run with `cargo deny check`.
+
+[advisories]
+version = 2
+# With schema v2, security and unmaintained/unsound advisories are denied by
+# default. Yanked crates are denied too; nothing is currently ignored.
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+# cargo-deny checks the ENTIRE dependency graph, dev-dependencies included.
+# None of the dev tooling (criterion, regex, serde_test and their transitive
+# crates) ships in the published crate, but their permissive licenses must be
+# allowed for the check to pass. This is the minimal set covering the
+# `--all-features` graph; the runtime graph alone is just `serde`
+# (MIT OR Apache-2.0), already covered by Apache-2.0.
+allow = ["Apache-2.0", "MIT", "Unicode-3.0"]
+confidence-threshold = 0.8
+
+[bans]
+# Duplicate versions are only warnings: the dev-dependency graph (criterion,
+# regex, …) legitimately pulls overlapping versions. Wildcard version
+# requirements are denied.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+# Only the public crates.io registry is allowed as a crate source.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
