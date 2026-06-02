@@ -1,6 +1,6 @@
 [package]
 name = "sashite-pin"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 rust-version = "1.81"
 description = "Piece Identifier Notation (PIN): a compact, ASCII-only, no_std token format for identifying pieces in abstract strategy board games."
@@ -15,10 +15,9 @@ categories = ["game-development", "encoding", "no-std", "parser-implementations"
 exclude = [".github/", "clippy.toml", "deny.toml", "rust-toolchain.toml"]
 
 [package.metadata.docs.rs]
-# Build docs with the optional features enabled, and set the cfg that
-# doc_auto_cfg uses to label feature-gated items.
+# Document the crate with its optional features enabled so the serde items
+# appear in the rendered output.
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 # No required runtime dependencies: PIN is no_std and self-contained. `serde` is

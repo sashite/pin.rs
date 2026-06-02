@@ -55,7 +55,6 @@
 //!   graph; the optional `serde` feature adds `serde` (kept `no_std`).
 
 #![no_std]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod encode;
 mod error;
