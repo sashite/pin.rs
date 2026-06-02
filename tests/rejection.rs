@@ -53,10 +53,10 @@ const REJECTED: &[(&str, ParseError)] = &[
     ("    ", ParseError::TooLong),
     ("hello world", ParseError::TooLong),
     // Non-ASCII: multi-byte characters never form a valid token.
-    ("é", ParseError::InvalidStateModifier), // 2 bytes
-    ("♔", ParseError::InvalidStateModifier), // 3 bytes
+    ("é", ParseError::InvalidStateModifier),  // 2 bytes
+    ("♔", ParseError::InvalidStateModifier),  // 3 bytes
     ("Ké", ParseError::InvalidStateModifier), // letter + 2-byte char = 3 bytes
-    ("🨀", ParseError::TooLong),              // 4 bytes
+    ("🨀", ParseError::TooLong),               // 4 bytes
 ];
 
 #[test]
@@ -64,8 +64,16 @@ fn every_entry_point_agrees_on_rejection() {
     for &(input, expected) in REJECTED {
         assert_eq!(Identifier::parse(input), Err(expected), "parse {input:?}");
         // `str::parse` exercises the `FromStr` implementation.
-        assert_eq!(input.parse::<Identifier>(), Err(expected), "FromStr {input:?}");
-        assert_eq!(Identifier::try_from(input), Err(expected), "TryFrom {input:?}");
+        assert_eq!(
+            input.parse::<Identifier>(),
+            Err(expected),
+            "FromStr {input:?}"
+        );
+        assert_eq!(
+            Identifier::try_from(input),
+            Err(expected),
+            "TryFrom {input:?}"
+        );
         assert!(!Identifier::is_valid(input), "is_valid {input:?}");
     }
 }
@@ -74,10 +82,19 @@ fn every_entry_point_agrees_on_rejection() {
 fn spec_cited_non_canonical_forms_are_rejected() {
     // The four shapes the specification explicitly calls out as invalid in its
     // canonical-form section.
-    assert_eq!(Identifier::parse("K+"), Err(ParseError::InvalidTerminalMarker));
-    assert_eq!(Identifier::parse("^K"), Err(ParseError::InvalidStateModifier));
+    assert_eq!(
+        Identifier::parse("K+"),
+        Err(ParseError::InvalidTerminalMarker)
+    );
+    assert_eq!(
+        Identifier::parse("^K"),
+        Err(ParseError::InvalidStateModifier)
+    );
     assert_eq!(Identifier::parse("++K"), Err(ParseError::InvalidLetter));
-    assert_eq!(Identifier::parse("K^^"), Err(ParseError::InvalidStateModifier));
+    assert_eq!(
+        Identifier::parse("K^^"),
+        Err(ParseError::InvalidStateModifier)
+    );
 }
 
 #[test]
@@ -95,7 +112,11 @@ fn error_messages_are_nonempty_distinct_and_usable_as_std_error() {
 
     messages.sort();
     messages.dedup();
-    assert_eq!(messages.len(), variants.len(), "Display messages must be distinct");
+    assert_eq!(
+        messages.len(),
+        variants.len(),
+        "Display messages must be distinct"
+    );
 
     // The error type integrates with the standard error trait.
     let as_error: &dyn std::error::Error = &ParseError::Empty;

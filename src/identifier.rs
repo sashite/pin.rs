@@ -63,7 +63,12 @@ impl Identifier {
     /// ```
     #[must_use]
     pub const fn new(letter: Letter, side: Side, state: State, terminal: bool) -> Self {
-        Self { letter, side, state, terminal }
+        Self {
+            letter,
+            side,
+            state,
+            terminal,
+        }
     }
 
     /// Parses a string slice into an identifier.

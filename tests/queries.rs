@@ -94,7 +94,11 @@ fn parses_from_bytes() {
 fn all_identifiers_are_distinct_and_hashable() {
     let ids = all_ids();
     let set: HashSet<Identifier> = ids.iter().copied().collect();
-    assert_eq!(set.len(), 312, "all 312 identifiers must be distinct under Hash + Eq");
+    assert_eq!(
+        set.len(),
+        312,
+        "all 312 identifiers must be distinct under Hash + Eq"
+    );
 
     // Re-inserting existing values does not grow the set.
     let mut reinserted = set;
@@ -105,7 +109,10 @@ fn all_identifiers_are_distinct_and_hashable() {
 #[test]
 fn usable_as_map_keys() {
     let mut map: HashMap<Identifier, &str> = HashMap::new();
-    map.insert(Identifier::parse("+K^").unwrap(), "enhanced terminal first king");
+    map.insert(
+        Identifier::parse("+K^").unwrap(),
+        "enhanced terminal first king",
+    );
     map.insert(Identifier::parse("p").unwrap(), "second pawn");
 
     assert_eq!(
@@ -127,7 +134,10 @@ fn sorting_yields_canonical_order() {
     let mut scrambled = canonical.clone();
     scrambled.reverse();
     scrambled.sort();
-    assert_eq!(scrambled, canonical, "sorting must reproduce canonical order");
+    assert_eq!(
+        scrambled, canonical,
+        "sorting must reproduce canonical order"
+    );
 }
 
 #[test]

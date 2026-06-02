@@ -121,14 +121,14 @@ fn parser_matches_spec_regex_over_all_ascii_inputs() {
 fn parser_matches_spec_regex_on_non_ascii_and_long_inputs() {
     let re = spec_regex();
     for s in [
-        "é",       // 2-byte char, single grapheme
-        "K♔",      // letter followed by a multi-byte char
-        "♔",       // lone multi-byte char
-        "KKKK",    // four ASCII letters
-        "+K^x",    // valid token plus trailing junk
-        "  ",      // whitespace only
-        "\n",      // bare newline
-        "K\n",     // letter then newline (must not match via `$`)
+        "é",    // 2-byte char, single grapheme
+        "K♔",   // letter followed by a multi-byte char
+        "♔",    // lone multi-byte char
+        "KKKK", // four ASCII letters
+        "+K^x", // valid token plus trailing junk
+        "  ",   // whitespace only
+        "\n",   // bare newline
+        "K\n",  // letter then newline (must not match via `$`)
     ] {
         assert_agreement(s, &re);
     }

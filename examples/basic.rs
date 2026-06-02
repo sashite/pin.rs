@@ -23,7 +23,12 @@ fn main() -> Result<(), ParseError> {
     println!("normalized    : {plain}");
 
     // Building from typed components is infallible: every combination is valid.
-    let pawn = Identifier::new(Letter::try_from_char('P')?, Side::Second, State::Enhanced, false);
+    let pawn = Identifier::new(
+        Letter::try_from_char('P')?,
+        Side::Second,
+        State::Enhanced,
+        false,
+    );
     println!("built         : {pawn} (a promoted second-side pawn)");
 
     // Checking validity without constructing an identifier.
