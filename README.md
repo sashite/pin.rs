@@ -66,8 +66,8 @@ sashite-pin = { version = "1", features = ["serde"] }
 ```rust
 use sashite_pin::{Identifier, Side, State};
 
-let king: Identifier = "+K^".parse()?;       // via FromStr
-let rook = Identifier::parse("r")?;          // via the inherent method
+let king: Identifier = "+K^".parse().expect("a valid PIN token"); // via FromStr
+let rook = Identifier::parse("r").expect("a valid PIN token");    // inherent
 
 assert_eq!(king.letter().as_char(), 'K');
 assert_eq!(king.side(), Side::First);
@@ -86,7 +86,7 @@ construction, every combination denotes a valid token.
 use sashite_pin::{Identifier, Letter, Side, State};
 
 let pawn = Identifier::new(
-    Letter::try_from_char('P')?,
+    Letter::try_from_char('P').expect("an ASCII letter"),
     Side::Second,
     State::Enhanced,
     false,
@@ -102,9 +102,32 @@ to `str`; `Display` writes the same canonical form.
 ```rust
 use sashite_pin::Identifier;
 
-let id = Identifier::parse("+K^")?;
+let id = Identifier::parse("+K^").expect("a valid PIN token");
 assert_eq!(id.encode().as_str(), "+K^");
 assert_eq!(id.to_string(), "+K^");           // requires `alloc`/`std`
+```
+
+`Display` routes through `Formatter::pad`, so a token honours the format spec
+exactly as a `str` does — width, fill, alignment and precision all apply. The
+same holds for `EncodedPin` and for `ParseError`'s message:
+
+```rust
+use sashite_pin::Identifier;
+let id = Identifier::parse("+K^").expect("a valid PIN token");
+assert_eq!(format!("{id:>6}"), "   +K^");
+assert_eq!(format!("{id:*<6}"), "+K^***");
+```
+
+An `EncodedPin` compares, orders and hashes by its token text, so it behaves
+like the `&str` it stands for — against another encoding or against a string:
+
+```rust
+use sashite_pin::Identifier;
+let a = Identifier::parse("K").expect("a valid PIN token").encode();
+let b = Identifier::parse("K^").expect("a valid PIN token").encode();
+assert_ne!(a, b);
+assert!(a < b);                              // lexicographic, like `str`
+assert_eq!(a, "K");                          // and directly against a string
 ```
 
 ### Validation
@@ -123,7 +146,7 @@ Every transformation returns a new value (the type is `Copy`, so this is cheap):
 ```rust
 use sashite_pin::Identifier;
 
-let white = Identifier::parse("+P")?;
+let white = Identifier::parse("+P").expect("a valid PIN token");
 assert_eq!(white.flipped().encode().as_str(), "+p");
 assert_eq!(white.normalized().encode().as_str(), "P");
 assert_eq!(white.diminished().with_terminal(true).encode().as_str(), "-P^");
@@ -150,7 +173,12 @@ A token maps to exactly four attributes:
 | letter case      | side             | uppercase → `First`, lowercase → `Second` |
 | letter           | piece name       | a single-letter abbreviation (`A`–`Z`)    |
 | `+` / `-` prefix | state            | `Enhanced` / `Diminished` (else `Normal`) |
-| `^` suffix       | terminal status  | present → terminal piece                   |
+| `^` suffix       | terminal status  | present → terminal piece                  |
+
+The regex must be anchored to the **whole** input. In an engine where `$` also
+matches before a trailing newline, `^[+-]?[A-Za-z]\^?$` would accept `"K\n"`;
+this crate rejects it, and its conformance tests use `\A`…`\z` so the oracle
+cannot drift into that trap either.
 
 Letters are not reserved: the mapping from abbreviation to full piece name is
 defined entirely by the rule system. See the
@@ -159,17 +187,18 @@ mappings (chess, shogi, xiangqi, makruk).
 
 ## Design and guarantees
 
-- **`no_std` and allocation-free.** Parsing borrows the input bytes; an
-  `Identifier` is a 4-byte `Copy` value and `EncodedPin` keeps the ≤ 3 output
-  bytes in a fixed inline buffer. Nothing touches the heap.
+- **`no_std` and allocation-free.** An `Identifier` borrows *nothing* — it is a
+  self-contained 4-byte `Copy` value — and `EncodedPin` keeps the ≤ 3 output
+  bytes in a fixed inline buffer. Nothing touches the heap, and no output
+  outlives its input.
 - **No `unsafe`, no regex engine.** The parser matches raw bytes directly,
   eliminating ReDoS as an attack vector.
 - **Bounded, panic-free parsing.** Inputs longer than three bytes are rejected on
   a structural length check before any byte is inspected, and the public parsing
   API returns a `Result` rather than panicking.
-- **`const`-friendly.** Construction, parsing, validation, the accessors, and
-  the transformations are all `const fn`, so identifiers can be built and
-  checked at compile time.
+- **`const`-friendly.** Construction, parsing, validation, the accessors, the
+  transformations and `encode` are all `const fn`, so identifiers can be built,
+  checked and spelled out at compile time.
 - **Total component construction.** With valid-by-construction component types,
   building an identifier from its parts cannot fail.
 

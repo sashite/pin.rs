@@ -68,6 +68,15 @@
 
 #![no_std]
 
+/// Compiles every example in `README.md` as a doctest.
+///
+/// Nothing built the README before, and its examples used `?` at what would be
+/// a doctest's top level — so they could not have compiled. Wiring it in costs
+/// nothing in a normal build and keeps the front page honest.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 mod encode;
 mod error;
 mod identifier;

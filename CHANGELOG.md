@@ -4,6 +4,29 @@ All notable changes to this crate are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 crate adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **The README is now compiled**, and fixing it up to compile found seven broken
+  examples. A `#[cfg(doctest)]` `include_str!` runs it as doctests (9 → 16);
+  nothing built it before, so its examples used `?` at what would be a
+  doctest's top level, and several blocks named `Identifier` without importing
+  it — neither could have compiled. They now use `.expect(...)` and carry their
+  own `use`, since a doctest is a whole crate rather than a continuation of the
+  block above it.
+- **"Parsing borrows the input bytes" was wrong.** An `Identifier` borrows
+  *nothing*: it is a self-contained 4-byte `Copy` value, and no output outlives
+  its input.
+- The README now documents what 1.1.0 made true: `Display` renders through
+  `Formatter::pad`; `EncodedPin` compares, orders and hashes by its token text;
+  `encode` is `const`; and the whole-input anchoring requirement, with the
+  trailing-newline trap it exists to avoid, is spelled out beside the grammar.
+
+Documentation only — no code change, so no release is required. Note that the
+README ships inside the published tarball, so crates.io and docs.rs keep showing
+the 1.1.0 text until the next publish.
+
 ## [1.1.0] — 2026-07-31
 
 A reliability review of the whole crate against the normative
