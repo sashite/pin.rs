@@ -18,7 +18,7 @@
 //! | letter case      | [`Side`]         | uppercase → `First`, lowercase → `Second` |
 //! | letter           | [`Letter`]       | the piece-name abbreviation (`A`–`Z`)     |
 //! | `+` / `-` prefix | [`State`]        | `Enhanced` / `Diminished` (else `Normal`) |
-//! | `^` suffix       | terminal status  | present → terminal piece                   |
+//! | `^` suffix       | terminal status  | present → terminal piece                  |
 //!
 //! PIN standardizes only the *encoding*; the meaning of each attribute is left
 //! to the rule system. See the [glossary](https://sashite.dev/glossary/).
@@ -40,6 +40,10 @@
 //!
 //! // Cheap, infallible transformations (the type is `Copy`).
 //! assert_eq!(king.flipped().encode().as_str(), "+k^");
+//!
+//! // Formatting behaves like any other string-like type.
+//! assert_eq!(king.to_string(), "+K^");
+//! assert_eq!(format!("{king:>6}"), "   +K^");
 //! # Ok(())
 //! # }
 //! ```
@@ -51,6 +55,14 @@
 //! - **No `unsafe`:** the crate is built under a forbid-`unsafe` lint policy.
 //! - **Bounded, panic-free parsing:** inputs longer than three bytes are
 //!   rejected before inspection, and the public parsing API never panics.
+//! - **`const` throughout:** construction, parsing, validation, the accessors,
+//!   the transformations, [`Identifier::encode`] and [`EncodedPin::as_str`] are
+//!   all `const fn`, so a token can be built, checked, encoded *and spelled
+//!   out* at compile time — the whole path from typed components to token text
+//!   runs in a `const` context.
+//! - **String-like formatting:** [`Identifier`], [`EncodedPin`] and
+//!   [`ParseError`] all render through [`core::fmt::Formatter::pad`], so width,
+//!   fill, alignment and precision work as they do for [`str`].
 //! - **No required dependencies:** the default build has an empty dependency
 //!   graph; the optional `serde` feature adds `serde` (kept `no_std`).
 

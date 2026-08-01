@@ -2,11 +2,15 @@
 //!
 //! Boolean queries are covered in `transformations.rs`. This file checks the
 //! attributes decoded from the documented piece-set mappings of the spec's
-//! examples page, and the behaviour of the derived `Eq` / `Hash` / `Ord`
-//! implementations when identifiers are used in collections.
+//! examples page, the behaviour of the derived `Eq` / `Hash` / `Ord`
+//! implementations when identifiers are used in collections, and the same
+//! properties for [`sashite_pin::EncodedPin`], whose comparisons are written by
+//! hand rather than derived.
 
-use sashite_pin::{Identifier, Letter, Side, State};
-use std::collections::{HashMap, HashSet};
+use sashite_pin::{EncodedPin, Identifier, Letter, Side, State};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 /// Builds all 312 identifiers in canonical (ascending) order.
 fn all_ids() -> Vec<Identifier> {
@@ -138,6 +142,158 @@ fn sorting_yields_canonical_order() {
         scrambled, canonical,
         "sorting must reproduce canonical order"
     );
+}
+
+/// Hashes anything hashable with the standard library's default hasher.
+fn hash_of<T: Hash>(value: &T) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+#[test]
+fn encodings_compare_to_each_other() {
+    // The reflexive comparison: two independently produced encodings of the
+    // same token are equal, and equal to the token text on both sides.
+    let a = Identifier::parse("+K^").unwrap().encode();
+    let b = Identifier::new(
+        Letter::try_from_char('K').unwrap(),
+        Side::First,
+        State::Enhanced,
+        true,
+    )
+    .encode();
+    assert_eq!(a, b);
+    assert_eq!(a, "+K^");
+    assert_eq!("+K^", b);
+    assert!(a <= b);
+    assert!(a >= b);
+    assert_eq!(a.cmp(&b), std::cmp::Ordering::Equal);
+    assert_eq!(hash_of(&a), hash_of(&b));
+}
+
+#[test]
+fn a_shorter_encoding_never_equals_a_longer_one() {
+    // `EncodedPin` stores its bytes in a fixed three-byte buffer with a length,
+    // so a naive whole-buffer comparison would risk letting tokens of different
+    // lengths alias. Each pair below shares a prefix and differs only in what
+    // follows, which is exactly the case such a comparison could get wrong.
+    let enc = |text: &str| Identifier::parse(text).unwrap().encode();
+
+    for (short, long) in [
+        ("K", "K^"),   // 1 vs 2 bytes, common prefix
+        ("K", "+K"),   // 1 vs 2 bytes, common suffix
+        ("K", "+K^"),  // 1 vs 3 bytes
+        ("+K", "+K^"), // 2 vs 3 bytes, common prefix
+        ("K^", "+K^"), // 2 vs 3 bytes, common suffix
+        ("k", "k^"),
+        ("-z", "-z^"),
+    ] {
+        let (s, l) = (enc(short), enc(long));
+        assert_ne!(s, l, "{short:?} must not equal {long:?}");
+        assert_ne!(l, s, "{long:?} must not equal {short:?}");
+        assert_ne!(s.len(), l.len());
+        // Ordering follows the text, and a proper prefix sorts first.
+        assert_eq!(s.cmp(&l), short.cmp(long), "{short:?} vs {long:?}");
+        // Cross-type comparison agrees with the self-comparison.
+        assert_ne!(s, long);
+        assert_ne!(l, short);
+    }
+}
+
+#[test]
+fn all_encodings_are_distinct_and_hash_like_their_text() {
+    let ids = all_ids();
+    let encodings: Vec<EncodedPin> = ids.iter().map(|id| id.encode()).collect();
+
+    // Distinct under Eq + Hash, and under Ord.
+    let hashed: HashSet<EncodedPin> = encodings.iter().copied().collect();
+    assert_eq!(hashed.len(), 312, "all 312 encodings must be distinct");
+    let sorted: BTreeSet<EncodedPin> = encodings.iter().copied().collect();
+    assert_eq!(sorted.len(), 312);
+
+    for (i, left) in encodings.iter().enumerate() {
+        // Hash matches the `str` it compares equal to, so an `EncodedPin` can
+        // be looked up interchangeably with its token text.
+        assert_eq!(hash_of(left), hash_of(&left.as_str()));
+
+        for (j, right) in encodings.iter().enumerate() {
+            let text_ord = left.as_str().cmp(right.as_str());
+            // Eq, Ord and Hash agree with each other and with the text.
+            assert_eq!(left == right, i == j, "{left:?} vs {right:?}");
+            assert_eq!(left.cmp(right), text_ord, "{left:?} vs {right:?}");
+            assert_eq!(left.partial_cmp(right), Some(text_ord));
+            if left == right {
+                assert_eq!(hash_of(left), hash_of(right));
+            }
+        }
+    }
+
+    // Sorting encodings reproduces lexicographic order on the token text.
+    let mut by_value: Vec<EncodedPin> = encodings.clone();
+    by_value.sort_unstable();
+    let mut by_text: Vec<&str> = encodings.iter().map(EncodedPin::as_str).collect();
+    by_text.sort_unstable();
+    let sorted_text: Vec<&str> = by_value.iter().map(EncodedPin::as_str).collect();
+    assert_eq!(sorted_text, by_text);
+}
+
+#[test]
+fn encodings_are_usable_as_collection_keys() {
+    let mut map: HashMap<EncodedPin, u32> = HashMap::new();
+    for id in all_ids() {
+        *map.entry(id.encode()).or_default() += 1;
+    }
+    assert_eq!(map.len(), 312);
+    assert!(map.values().all(|&count| count == 1));
+    assert_eq!(
+        map.get(&Identifier::parse("+K^").unwrap().encode()),
+        Some(&1)
+    );
+}
+
+#[test]
+fn an_identifier_is_the_four_byte_copy_value_the_documentation_promises() {
+    // The crate documentation states the size outright, and callers pack
+    // identifiers into arrays and structs on the strength of it. Nothing in the
+    // language guarantees the layout of a `repr(Rust)` type, so the claim rests
+    // on there being four one-byte fields at one-byte alignment, leaving no
+    // room for padding. That is true today; this fails loudly if it stops being.
+    assert_eq!(size_of::<Identifier>(), 4);
+    assert_eq!(align_of::<Identifier>(), 1);
+
+    // `Copy` is the other half of the same sentence, and the reason every
+    // transformation can take `self` by value: reading a value after it has
+    // been passed on compiles only for a `Copy` type.
+    let id = Identifier::parse("+K^").unwrap();
+    let passed_on = id;
+    assert_eq!(passed_on, id);
+}
+
+#[test]
+fn encoding_order_is_genuinely_not_identifier_order() {
+    // `EncodedPin` documents that it orders lexicographically by token text and
+    // that this is *not* the order `Identifier` derives. A claim that two
+    // orderings differ is worth nothing without a witness, so here is one.
+    //
+    // `-A` and `+A` share a letter and a side, so `Identifier` lets `State`
+    // decide and `Diminished` sorts below `Enhanced`. The text inverts it: '+'
+    // is 0x2B and '-' is 0x2D, so `"+A"` sorts first.
+    let diminished = Identifier::parse("-A").unwrap();
+    let enhanced = Identifier::parse("+A").unwrap();
+    assert!(diminished < enhanced);
+    assert!(diminished.encode() > enhanced.encode());
+
+    // The divergence is structural rather than a single quirk: sorting the
+    // whole closed domain by each ordering yields different sequences, and each
+    // one starts where its own rule says it should.
+    let mut by_identifier = all_ids();
+    by_identifier.sort_unstable();
+    let mut by_text = all_ids();
+    by_text.sort_unstable_by_key(|id| id.encode());
+    assert_ne!(by_identifier, by_text);
+    assert_eq!(by_identifier[0].encode(), "-A");
+    assert_eq!(by_text[0].encode(), "+A");
 }
 
 #[test]

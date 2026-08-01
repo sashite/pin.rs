@@ -3,8 +3,9 @@
 //! This is the only place untrusted input is inspected. The parser is
 //! allocation-free, uses no regex engine, and rejects over-long input on a
 //! structural length check before any byte is examined. It is reached from
-//! outside the crate only through [`crate::Identifier`] (its `parse`,
-//! [`core::str::FromStr`], and [`TryFrom`] entry points).
+//! outside the crate only through [`crate::Identifier`]: its `parse` and
+//! `is_valid` inherent methods, and its [`core::str::FromStr`] and [`TryFrom`]
+//! implementations (for both `&str` and `&[u8]`).
 
 use crate::error::ParseError;
 use crate::identifier::Identifier;

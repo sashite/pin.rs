@@ -97,6 +97,93 @@ fn spec_cited_non_canonical_forms_are_rejected() {
     );
 }
 
+/// The one byte class the grammar recognises outside the abbreviation and the
+/// terminal marker, named so the property below reads like the specification.
+fn is_state_modifier(byte: u8) -> bool {
+    byte == b'+' || byte == b'-'
+}
+
+/// Checks that a rejection blames a position whose byte is genuinely wrong
+/// there, and reports whether the slice was rejected at all.
+fn blames_a_position_that_is_genuinely_wrong(bytes: &[u8]) -> bool {
+    let Err(error) = Identifier::try_from(bytes) else {
+        return false;
+    };
+    match error {
+        ParseError::Empty => assert!(bytes.is_empty(), "{bytes:?}"),
+        ParseError::TooLong => assert!(bytes.len() > 3, "{bytes:?}"),
+        ParseError::InvalidLetter => {
+            // The abbreviation is the whole one-byte token, and byte 1 once a
+            // state modifier has been consumed ahead of it.
+            let abbr = usize::from(bytes.len() > 1);
+            assert!(!bytes[abbr].is_ascii_alphabetic(), "{bytes:?}");
+            assert!(abbr == 0 || is_state_modifier(bytes[0]), "{bytes:?}");
+        }
+        ParseError::InvalidStateModifier => {
+            // Blamed only when byte 0 can open no shape of this length: never a
+            // modifier, and never a letter either while a two-byte
+            // `<abbr><terminal>` was still on the table.
+            assert!(!is_state_modifier(bytes[0]), "{bytes:?}");
+            assert!(
+                bytes.len() != 2 || !bytes[0].is_ascii_alphabetic(),
+                "{bytes:?}"
+            );
+        }
+        ParseError::InvalidTerminalMarker => {
+            let (last, head) = bytes.split_last().expect("a blamed position exists");
+            assert_ne!(*last, b'^', "{bytes:?}");
+            // What the parser had already accepted really was a well-formed
+            // `[<modifier>]<abbr>` prefix, so the marker is the only complaint.
+            match head {
+                [letter] => assert!(letter.is_ascii_alphabetic(), "{bytes:?}"),
+                [modifier, letter] => {
+                    assert!(is_state_modifier(*modifier), "{bytes:?}");
+                    assert!(letter.is_ascii_alphabetic(), "{bytes:?}");
+                }
+                other => panic!("unexpected accepted prefix {other:?} in {bytes:?}"),
+            }
+        }
+        // `ParseError` is `#[non_exhaustive]`. A variant added later must be
+        // given its own position rule here rather than slip through unexamined.
+        other => panic!("unclassified variant {other:?} for {bytes:?}"),
+    }
+    true
+}
+
+/// Every rejection blames a position whose byte is genuinely wrong there.
+///
+/// `ParseError`'s documentation says a variant names the *position* that
+/// failed, not the most striking oddity of the input. That is a checkable
+/// claim, not merely a description: whenever the parser blames a position, the
+/// byte there must really be unusable, and the bytes the parser had already
+/// accepted must really have been acceptable. The table above fixes that
+/// mapping on 40 hand-picked inputs; this sweeps every byte slice of length 0
+/// to 3 — the whole space in which acceptance is even possible — so a future
+/// rearrangement of the parser's branches cannot start blaming the wrong byte
+/// on some input nobody thought to list.
+#[test]
+fn every_rejection_blames_a_position_that_is_genuinely_wrong() {
+    let mut buf = [0u8; 3];
+    let mut rejected = 0_u32;
+
+    rejected += u32::from(blames_a_position_that_is_genuinely_wrong(&[]));
+    for first in 0..=u8::MAX {
+        buf[0] = first;
+        rejected += u32::from(blames_a_position_that_is_genuinely_wrong(&buf[..1]));
+        for second in 0..=u8::MAX {
+            buf[1] = second;
+            rejected += u32::from(blames_a_position_that_is_genuinely_wrong(&buf[..2]));
+            for third in 0..=u8::MAX {
+                buf[2] = third;
+                rejected += u32::from(blames_a_position_that_is_genuinely_wrong(&buf[..3]));
+            }
+        }
+    }
+
+    // 1 + 256 + 256² + 256³ slices, of which exactly the 312 tokens survive.
+    assert_eq!(rejected, 16_843_009 - 312);
+}
+
 #[test]
 fn error_messages_are_nonempty_distinct_and_usable_as_std_error() {
     let variants = [

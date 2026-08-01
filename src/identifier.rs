@@ -102,8 +102,11 @@ impl Identifier {
     }
 
     /// Returns the canonical, allocation-free string encoding of this token.
+    ///
+    /// This is a `const fn`, so canonical tokens can be materialized at compile
+    /// time alongside the identifiers they come from.
     #[must_use]
-    pub fn encode(self) -> EncodedPin {
+    pub const fn encode(self) -> EncodedPin {
         EncodedPin::from_identifier(self)
     }
 
@@ -218,9 +221,15 @@ impl Identifier {
     }
 }
 
+/// Writes the canonical token, the same text [`Identifier::encode`] produces.
+///
+/// Formatting goes through [`core::fmt::Formatter::pad`], so the token honours
+/// width, fill, alignment and precision exactly as a [`str`] would:
+/// `format!("{id:>6}")` right-aligns it in six columns. With an empty format
+/// spec the output is the bare token, so `to_string()` is the canonical form.
 impl core::fmt::Display for Identifier {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(self.encode().as_str())
+        f.pad(self.encode().as_str())
     }
 }
 
